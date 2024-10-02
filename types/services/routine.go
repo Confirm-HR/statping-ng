@@ -536,7 +536,6 @@ func CheckHttp(s *Service, record bool) (*Service, error) {
 		return s, err
 	}
 	s.PingTime = dnsLookup
-	t1 := utils.Now()
 
 	timeout := time.Duration(s.Timeout) * time.Second
 	var content []byte
@@ -585,7 +584,9 @@ func CheckHttp(s *Service, record bool) (*Service, error) {
 
 	var retryCount int = 3
 	var backoff time.Duration = 1 * time.Second
+	var t1 time.Time
 	for attempts := 0; attempts <= retryCount; attempts++ {
+		t1 = utils.Now()
 		content, res, err = utils.HttpRequest(s.Domain, s.Method, contentType, headers, data, timeout, s.VerifySSL.Bool, customTLS)
 		if err == nil && s.ExpectedStatus == res.StatusCode {
 			// Request succeeded, break out of retry loop.
