@@ -20,11 +20,21 @@ all: build-deps compile install test build
 docker-confirmhr:
 	docker build -t confirmhr/uptime-monitoring:${COMMIT} --build-arg VERSION=${VERSION} --build-arg COMMIT=${COMMIT} .
 
-docker-confirmhr-multiarch: multiarch
-	docker buildx create --name confirmhr-builder --driver-opt image=moby/buildkit:master || true
-	docker buildx inspect --builder confirmhr-builder --bootstrap
-	docker buildx build --builder confirmhr-builder --push --platform linux/amd64,linux/arm64 -f Dockerfile -t confirmhr/uptime-monitoring:${COMMIT} --build-arg=VERSION=${VERSION} --build-arg=COMMIT=${COMMIT} .
-	docker buildx rm confirmhr-builder
+docker-confirmhr-arm64:
+	@if [ "$$(uname -m)" != "aarch64" ] && [ "$$(uname -m)" != "arm64" ]; then \
+		echo "Error: docker-confirmhr-arm64 must be run on an ARM64 machine (current: $$(uname -m))"; \
+		exit 1; \
+	fi
+	docker build -t confirmhr/uptime-monitoring:${COMMIT}-arm64 --build-arg VERSION=${VERSION} --build-arg COMMIT=${COMMIT} .
+	docker push confirmhr/uptime-monitoring:${COMMIT}-arm64
+
+docker-confirmhr-amd64:
+	@if [ "$$(uname -m)" != "x86_64" ]; then \
+		echo "Error: docker-confirmhr-amd64 must be run on an AMD64 machine (current: $$(uname -m))"; \
+		exit 1; \
+	fi
+	docker build -t confirmhr/uptime-monitoring:${COMMIT}-amd64 --build-arg VERSION=${VERSION} --build-arg COMMIT=${COMMIT} .
+	docker push confirmhr/uptime-monitoring:${COMMIT}-amd64
 
 test: clean compile
 	go test -v -p=1 -ldflags="-X main.VERSION=${VERSION} -X main.COMMIT=${COMMIT}" -coverprofile=coverage.out ./...
@@ -386,7 +396,7 @@ buildx-dev: multiarch
 
 multiarch:
 	mkdir /tmp/.buildx-cache || true
-	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+	docker run --privileged --rm tonistiigi/binfmt --install all
 
 delve:
 	go build -gcflags "all=-N -l" -o statping ./cmd
@@ -412,5 +422,5 @@ gen_help:
 		marked -o html/$file.html $file --gfm
 	done
 
-.PHONY: all check build certs multiarch install-darwin go-build build-all buildx-dev buildx-latest build-alpine test-all test test-api docker docker-confirmhr docker-confirmhr-multiarch frontend up down print_details lite sentry-release snapcraft build-linux build-mac build-win build-all postman
+.PHONY: all check build certs multiarch install-darwin go-build build-all buildx-dev buildx-latest build-alpine test-all test test-api docker docker-confirmhr docker-confirmhr-arm64 docker-confirmhr-amd64 frontend up down print_details lite sentry-release snapcraft build-linux build-mac build-win build-all postman
 .SILENT: travis_s3_creds
