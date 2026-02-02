@@ -20,6 +20,12 @@ all: build-deps compile install test build
 docker-confirmhr:
 	docker build -t confirmhr/uptime-monitoring:${COMMIT} --build-arg VERSION=${VERSION} --build-arg COMMIT=${COMMIT} .
 
+docker-confirmhr-multiarch: multiarch
+	docker buildx create --name confirmhr-builder --driver-opt image=moby/buildkit:master || true
+	docker buildx inspect --builder confirmhr-builder --bootstrap
+	docker buildx build --builder confirmhr-builder --push --platform linux/amd64,linux/arm64 -f Dockerfile -t confirmhr/uptime-monitoring:${COMMIT} --build-arg=VERSION=${VERSION} --build-arg=COMMIT=${COMMIT} .
+	docker buildx rm confirmhr-builder
+
 test: clean compile
 	go test -v -p=1 -ldflags="-X main.VERSION=${VERSION} -X main.COMMIT=${COMMIT}" -coverprofile=coverage.out ./...
 
@@ -406,5 +412,5 @@ gen_help:
 		marked -o html/$file.html $file --gfm
 	done
 
-.PHONY: all check build certs multiarch install-darwin go-build build-all buildx-dev buildx-latest build-alpine test-all test test-api docker frontend up down print_details lite sentry-release snapcraft build-linux build-mac build-win build-all postman
+.PHONY: all check build certs multiarch install-darwin go-build build-all buildx-dev buildx-latest build-alpine test-all test test-api docker docker-confirmhr docker-confirmhr-multiarch frontend up down print_details lite sentry-release snapcraft build-linux build-mac build-win build-all postman
 .SILENT: travis_s3_creds
